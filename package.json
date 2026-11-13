@@ -1,0 +1,43 @@
+{
+  "name": "chat_interface_with_real_ai_api",
+  "version": "1.0.0",
+  "description": "A chat interface with React/Next.js that integrates with Groq API",
+  "main": "index.js",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/4GeeksAcademy/Chat_Interface_with_Real_AI_API.git"
+  },
+  "keywords": [
+    "chat",
+    "groq",
+    "ai",
+    "next.js",
+    "react"
+  ],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/4GeeksAcademy/Chat_Interface_with_Real_AI_API/issues"
+  },
+  "homepage": "https://github.com/4GeeksAcademy/Chat_Interface_with_Real_AI_API#readme",
+  "dependencies": {
+    "@types/node": "26.6.6",
+    "@types/react": "19.3.0",
+    "next": "16.4.6",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "typescript": "7.0.2"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.3.5",
+    "autoprefixer": "^10.6.2",
+    "postcss": "^8.5.32",
+    "tailwindcss": "^4.3.5"
+  }
+}
