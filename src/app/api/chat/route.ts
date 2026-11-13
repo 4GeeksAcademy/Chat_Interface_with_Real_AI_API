@@ -62,6 +62,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     const startTime = Date.now();
 
+    // Clean messages: remove tokens field (Groq API doesn't support it)
+    const cleanMessages = messages.map((msg: any) => ({
+      role: msg.role,
+      content: msg.content,
+    }));
+
     // Call Groq API
     const response = await fetch(GROQ_API_URL, {
       method: "POST",
@@ -71,7 +77,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       },
       body: JSON.stringify({
         model,
-        messages,
+        messages: cleanMessages,
         temperature: 0.7,
         max_tokens: 1024,
       }),

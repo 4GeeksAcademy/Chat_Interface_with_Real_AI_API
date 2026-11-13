@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
+import "@/styles/atlas.css";
 import "@/styles/globals.css";
-import "@/styles/modern.css";
 
 export const metadata: Metadata = {
-  title: "Chat Interface with Groq API",
-  description: "A modern chat application powered by Groq AI API",
+  title: "Atlas Chat - Groq AI Interface",
+  description: "A modern chat application powered by Groq AI API with advanced token tracking",
 };
 
 export default function RootLayout({
@@ -14,7 +14,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className="bg-gradient-to-br from-slate-50 via-blue-50 to-slate-50">
+      <body>
         {children}
       </body>
     </html>

@@ -9,10 +9,11 @@ export interface MessageUsage {
 }
 
 export interface Message {
-  id: string;
+  id?: string;
   role: "user" | "assistant";
   content: string;
-  timestamp: number;
+  timestamp?: number;
+  tokens?: number;
   modelUsed?: string;
   responseTime?: number; // milliseconds
   usage?: MessageUsage;

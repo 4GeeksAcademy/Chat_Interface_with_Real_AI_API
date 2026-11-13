@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { ChatRequest, ChatResponse, ChatError, Message } from "@/types/chat";
-import { generateMessageId } from "@/utils/storage";
 
 interface UseGroqChatOptions {
   model?: string;
@@ -17,24 +16,15 @@ export function useGroqChat(options: UseGroqChatOptions = {}) {
   const [error, setError] = useState<string | null>(null);
 
   const sendMessage = async (
-    messages: Array<{ role: "user" | "assistant"; content: string }>,
-    userMessage: string
+    messages: Array<{ role: "user" | "assistant"; content: string }>
   ): Promise<Message | null> => {
     setIsLoading(true);
     setError(null);
 
     try {
-      // Create user message first
-      const userMsg: Message = {
-        id: generateMessageId(),
-        role: "user",
-        content: userMessage,
-        timestamp: Date.now(),
-      };
-
       // Call backend API
       const request: ChatRequest = {
-        messages: [...messages, { role: "user", content: userMessage }],
+        messages,
         model: options.model || "openai/gpt-oss-120b",
       };
 
@@ -61,6 +51,7 @@ export function useGroqChat(options: UseGroqChatOptions = {}) {
         timestamp: Date.now(),
         modelUsed: data.model,
         responseTime: data.responseTime,
+        tokens: data.usage.totalTokens,
         usage: data.usage,
       };
 
