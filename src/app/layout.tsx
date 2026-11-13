@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import "@/styles/globals.css";
+import "@/styles/modern.css";
 
 export const metadata: Metadata = {
   title: "Chat Interface with Groq API",
-  description: "A chat application powered by Groq AI API",
+  description: "A modern chat application powered by Groq AI API",
 };
 
 export default function RootLayout({
@@ -13,7 +14,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body className="bg-gradient-to-br from-slate-50 via-blue-50 to-slate-50">
+        {children}
+      </body>
     </html>
   );
 }

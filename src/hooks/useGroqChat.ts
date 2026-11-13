@@ -35,7 +35,7 @@ export function useGroqChat(options: UseGroqChatOptions = {}) {
       // Call backend API
       const request: ChatRequest = {
         messages: [...messages, { role: "user", content: userMessage }],
-        model: options.model || "mixtral-8x7b-32768",
+        model: options.model || "openai/gpt-oss-120b",
       };
 
       const response = await fetch("/api/chat", {
