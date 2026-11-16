@@ -4,43 +4,111 @@ import { useState, useRef, useEffect } from 'react';
 import MessageList from '@/components/MessageList';
 import ChatInput from '@/components/ChatInput';
 import TokenStats from '@/components/TokenStats';
+import ErrorDisplay from '@/components/ErrorDisplay';
 import { useChatSession } from '@/hooks/useChatSession';
 import { useGroqChat } from '@/hooks/useGroqChat';
 import { Message } from '@/types/chat';
+import { addMessageToSession } from '@/utils/storage';
 
 export default function Home() {
   const [showStats, setShowStats] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
-  const { session, clearSession } = useChatSession();
+  const { session, setSession, isLoading: sessionLoading, error: sessionError } = useChatSession();
   const [messages, setMessages] = useState<Message[]>([]);
-  const { sendMessage, isLoading } = useGroqChat();
+  const [displayError, setDisplayError] = useState<string | null>(null);
+  const { sendMessage, isLoading, error: chatError, clearError: clearChatError } = useGroqChat();
   const threadRef = useRef<HTMLDivElement>(null);
 
+  // Initialize messages from session when it loads
   useEffect(() => {
     if (session?.messages) {
       setMessages(session.messages);
     }
-  }, [session]);
+  }, [session?.id]);
 
+  // Auto-scroll to bottom on new messages
   useEffect(() => {
     threadRef.current?.scrollTo(0, threadRef.current.scrollHeight);
   }, [messages]);
 
-  const handleSendMessage = async (text: string) => {
-    const userMsg: Message = { role: 'user', content: text, tokens: 0 };
-    const newMessages = [...messages, userMsg];
-    setMessages(newMessages);
+  // Sync display error from chat hook
+  useEffect(() => {
+    if (chatError) {
+      setDisplayError(chatError);
+    }
+  }, [chatError]);
 
-    const response = await sendMessage(newMessages);
+  const syncMessageToSession = (newMessages: Message[]) => {
+    if (!session) return;
+    
+    // Update local session object with new messages
+    let updatedSession = { ...session, messages: newMessages, updatedAt: Date.now() };
+    
+    // Update stats for assistant messages
+    if (newMessages.length > messages.length) {
+      const lastMessage = newMessages[newMessages.length - 1];
+      updatedSession = addMessageToSession(updatedSession, lastMessage);
+    }
+    
+    // This triggers the hook effect in useChatSession to save to localStorage
+    setSession(updatedSession);
+  };
+
+  const handleSendMessage = async (text: string) => {
+    // Add user message
+    const userMsg: Message = {
+      id: `msg_${Date.now()}_user`,
+      role: 'user',
+      content: text,
+      timestamp: Date.now(),
+      tokens: 0,
+    };
+    
+    const newMessagesWithUser = [...messages, userMsg];
+    setMessages(newMessagesWithUser);
+    
+    // Sync user message to session
+    syncMessageToSession(newMessagesWithUser);
+
+    // Get assistant response
+    const response = await sendMessage(newMessagesWithUser);
+    
     if (response) {
-      const assistantMsg: Message = {
-        role: 'assistant',
-        content: response.content,
-        tokens: response.tokens || 0,
-      };
-      setMessages([...newMessages, assistantMsg]);
+      // Add assistant response
+      const finalMessages = [...newMessagesWithUser, response];
+      setMessages(finalMessages);
+      
+      // Sync assistant response to session (which also updates stats)
+      syncMessageToSession(finalMessages);
+    } else if (chatError) {
+      // Error occurred - it's already in displayError via useEffect
+      // Optionally remove the failed user message if desired
+      // For now, we keep it to show the user what they tried to send
     }
   };
+
+  const handleClearSession = () => {
+    setMessages([]);
+    setDisplayError(null);
+    clearChatError();
+  };
+
+  if (sessionLoading) {
+    return (
+      <div className="app" id="app">
+        <main className="main" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ textAlign: 'center' }}>
+            <div className="thinking">
+              <span></span>
+              <span></span>
+              <span></span>
+            </div>
+            <p style={{ marginTop: '1rem', color: 'var(--muted)' }}>Loading session...</p>
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="app" id="app">
@@ -54,7 +122,7 @@ export default function Home() {
             </svg>
           </button>
         </div>
-        <button className="newchat" onClick={clearSession}>
+        <button className="newchat" onClick={handleClearSession}>
           <svg className="i" viewBox="0 0 24 24">
             <path d="M12 5v14M5 12h14"/>
           </svg>
@@ -106,6 +174,14 @@ export default function Home() {
             </svg>
           </button>
         </header>
+
+        <ErrorDisplay 
+          error={displayError || sessionError} 
+          onDismiss={() => {
+            setDisplayError(null);
+            clearChatError();
+          }}
+        />
 
         <div className="thread" ref={threadRef}>
           <div className="thread-inner">

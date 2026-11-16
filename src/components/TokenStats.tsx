@@ -8,7 +8,19 @@ interface TokenStatsProps {
 }
 
 export default function TokenStats({ messages }: TokenStatsProps) {
-  const totalTokens = messages.reduce((sum, msg) => sum + (msg.tokens || 0), 0);
+  const assistantMessages = messages.filter(m => m.role === 'assistant');
+  
+  const totalPromptTokens = assistantMessages.reduce(
+    (sum, msg) => sum + (msg.usage?.promptTokens || 0), 
+    0
+  );
+  
+  const totalCompletionTokens = assistantMessages.reduce(
+    (sum, msg) => sum + (msg.usage?.completionTokens || 0), 
+    0
+  );
+  
+  const totalTokens = totalPromptTokens + totalCompletionTokens;
   const totalMessages = messages.length;
   const avgTokensPerMessage = totalMessages > 0 ? Math.round(totalTokens / totalMessages) : 0;
 
@@ -29,6 +41,14 @@ export default function TokenStats({ messages }: TokenStatsProps) {
 
       <div className="rows">
         <div>
+          <span>Prompt Tokens</span>
+          <span>{totalPromptTokens.toLocaleString()}</span>
+        </div>
+        <div>
+          <span>Completion Tokens</span>
+          <span>{totalCompletionTokens.toLocaleString()}</span>
+        </div>
+        <div>
           <span>Total Messages</span>
           <span>{totalMessages}</span>
         </div>
@@ -38,7 +58,7 @@ export default function TokenStats({ messages }: TokenStatsProps) {
         </div>
         <div>
           <span>Model</span>
-          <span>{messages.length > 0 && messages.some(m => m.modelUsed) ? messages.find(m => m.modelUsed)?.modelUsed : 'GPT OSS 120B'}</span>
+          <span>{messages.length > 0 && messages.some(m => m.modelUsed) ? messages.find(m => m.modelUsed)?.modelUsed : 'Mixtral 8x7B'}</span>
         </div>
       </div>
 
