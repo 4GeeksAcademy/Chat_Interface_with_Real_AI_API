@@ -7,17 +7,35 @@ import TokenStats from '@/components/TokenStats';
 import ErrorDisplay from '@/components/ErrorDisplay';
 import { useChatSession } from '@/hooks/useChatSession';
 import { useGroqChat } from '@/hooks/useGroqChat';
-import { Message } from '@/types/chat';
+import { Message, ChatSession } from '@/types/chat';
 import { addMessageToSession } from '@/utils/storage';
 
 export default function Home() {
   const [showStats, setShowStats] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const [selectedModel, setSelectedModel] = useState<string>('openai/gpt-oss-20b');
+  const [groqApiKey, setGroqApiKey] = useState<string>('');
   const { session, setSession, isLoading: sessionLoading, error: sessionError } = useChatSession();
   const [messages, setMessages] = useState<Message[]>([]);
   const [displayError, setDisplayError] = useState<string | null>(null);
-  const { sendMessage, isLoading, error: chatError, clearError: clearChatError } = useGroqChat();
+  const { sendMessage, isLoading, error: chatError, clearError: clearChatError } = useGroqChat({ apiKey: groqApiKey });
   const threadRef = useRef<HTMLDivElement>(null);
+
+  // Load API key from env on mount
+  useEffect(() => {
+    const loadApiKey = async () => {
+      try {
+        const response = await fetch('/api/key');
+        if (response.ok) {
+          const { apiKey } = await response.json();
+          setGroqApiKey(apiKey);
+        }
+      } catch (err) {
+        console.error('Failed to load API key:', err);
+      }
+    };
+    loadApiKey();
+  }, []);
 
   // Initialize messages from session when it loads
   useEffect(() => {
@@ -42,19 +60,41 @@ export default function Home() {
     if (!session) return;
     
     // Update local session object with new messages
-    let updatedSession = { ...session, messages: newMessages, updatedAt: Date.now() };
+    let updatedSession: ChatSession = { 
+      ...session, 
+      messages: newMessages, 
+      updatedAt: Date.now() 
+    };
     
-    // Update stats for assistant messages
-    if (newMessages.length > messages.length) {
-      const lastMessage = newMessages[newMessages.length - 1];
-      updatedSession = addMessageToSession(updatedSession, lastMessage);
-    }
+    // Calculate stats from all messages
+    let totalPromptTokens = 0;
+    let totalCompletionTokens = 0;
+    
+    newMessages.forEach(msg => {
+      if (msg.usage) {
+        totalPromptTokens += msg.usage.promptTokens;
+        totalCompletionTokens += msg.usage.completionTokens;
+      }
+    });
+    
+    updatedSession.stats = {
+      totalPromptTokens,
+      totalCompletionTokens,
+      totalTokens: totalPromptTokens + totalCompletionTokens,
+      messageCount: newMessages.filter(m => m.role === 'assistant').length,
+      startTime: session.stats.startTime,
+    };
     
     // This triggers the hook effect in useChatSession to save to localStorage
     setSession(updatedSession);
   };
 
   const handleSendMessage = async (text: string) => {
+    if (!groqApiKey) {
+      setDisplayError('API key not loaded. Please refresh the page.');
+      return;
+    }
+
     // Add user message
     const userMsg: Message = {
       id: `msg_${Date.now()}_user`,
@@ -70,8 +110,8 @@ export default function Home() {
     // Sync user message to session
     syncMessageToSession(newMessagesWithUser);
 
-    // Get assistant response
-    const response = await sendMessage(newMessagesWithUser);
+    // Get assistant response with selected model
+    const response = await sendMessage(newMessagesWithUser, { model: selectedModel, apiKey: groqApiKey });
     
     if (response) {
       // Add assistant response
@@ -163,9 +203,10 @@ export default function Home() {
           <h1>Atlas Chat</h1>
           <label className="model">
             <span className="dot"></span>
-            <select>
-              <option>Mixtral 8x7B</option>
-              <option>Llama 2</option>
+            <select value={selectedModel} onChange={(e) => setSelectedModel(e.target.value)}>
+              <option value="openai/gpt-oss-20b">GPT OSS 20B</option>
+              <option value="openai/gpt-oss-120b">GPT OSS 120B</option>
+              <option value="qwen/qwen-3.8-27b">Qwen 3.8 27B</option>
             </select>
           </label>
           <button className="icon-btn only-stats-narrow" onClick={() => setShowStats(!showStats)}>

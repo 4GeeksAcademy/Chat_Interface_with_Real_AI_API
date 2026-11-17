@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { ChatRequest, ChatResponse, ChatError } from "@/types/chat";
 
 const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
-const DEFAULT_MODEL = "openai/gpt-oss-120b";
+const DEFAULT_MODEL = "openai/gpt-oss-20b";
 
 /**
  * POST /api/chat - Send message to Groq API and get response

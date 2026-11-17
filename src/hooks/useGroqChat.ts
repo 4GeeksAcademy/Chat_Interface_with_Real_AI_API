@@ -1,134 +1,84 @@
 "use client";
 
 import { useState } from "react";
-import { ChatResponse, ChatError, Message } from "@/types/chat";
+import { Message } from "@/types/chat";
 
 interface UseGroqChatOptions {
   model?: string;
   apiKey?: string;
 }
 
-interface GroqMessage {
-  role: "user" | "assistant";
-  content: string;
-}
-
-interface GroqRequestBody {
-  model: string;
-  messages: GroqMessage[];
-  temperature: number;
-  max_tokens: number;
-}
-
-interface GroqResponseChoice {
-  message: {
-    content: string;
-    role: string;
-  };
-  finish_reason: string;
-}
-
-interface GroqResponseData {
-  id: string;
-  choices: GroqResponseChoice[];
-  usage: {
-    prompt_tokens: number;
-    completion_tokens: number;
-    total_tokens: number;
-  };
-}
-
 /**
  * Hook to handle Groq API communication directly from browser
- * Calls Groq API with Bearer token instead of proxying through backend
+ * Calls Groq API with Bearer token authentication
  */
 export function useGroqChat(options: UseGroqChatOptions = {}) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const getApiKey = (): string => {
-    // Try to get from options, then environment, then localStorage
-    if (options.apiKey) return options.apiKey;
-    
-    if (typeof window !== "undefined") {
-      const stored = localStorage.getItem("groq_api_key");
-      if (stored) return stored;
-    }
-
-    // Fallback: empty string will be caught and reported
-    return "";
-  };
-
   const sendMessage = async (
-    messages: Array<{ role: "user" | "assistant"; content: string }>
+    messages: Array<{ role: "user" | "assistant"; content: string }>,
+    opts?: UseGroqChatOptions
   ): Promise<Message | null> => {
     setIsLoading(true);
     setError(null);
 
     try {
-      const apiKey = getApiKey();
-      
+      const model = opts?.model || options.model || "openai/gpt-oss-20b";
+      const apiKey = opts?.apiKey || options.apiKey;
+
       if (!apiKey) {
-        throw new Error(
-          "Groq API key not configured. Please set GROQ_API_KEY in localStorage or pass it to useGroqChat."
-        );
+        throw new Error("Groq API key is required. Please add GROQ_API_KEY to .env.local");
       }
 
-      const model = options.model || "mixtral-8x7b-32768";
-
-      // Call Groq API directly from browser
-      const requestBody: GroqRequestBody = {
-        model,
-        messages: messages as GroqMessage[],
-        temperature: 0.7,
-        max_tokens: 1024,
-      };
-
+      // Call Groq API directly with Bearer token
       const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${apiKey}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(requestBody),
+        body: JSON.stringify({
+          model,
+          // Only send fields accepted by Groq's chat-completions API.
+          // App messages also carry local metadata such as id, timestamp, and tokens.
+          messages: messages.map(({ role, content }) => ({ role, content })),
+          temperature: 0.7,
+          max_tokens: 1024,
+        }),
       });
 
       if (!response.ok) {
-        let errorMsg = `Groq API error: ${response.status}`;
-        try {
-          const errorData: any = await response.json();
-          errorMsg = errorData.error?.message || errorData.error || errorMsg;
-        } catch {
-          // Could not parse error response
-        }
+        const errorData = await response.json();
+        const errorMsg = errorData.error?.message || `Groq API error: ${response.status}`;
         throw new Error(errorMsg);
       }
 
       const startTime = Date.now();
-      const data: GroqResponseData = await response.json();
+      const data = await response.json();
       const responseTime = Date.now() - startTime;
 
-      // Extract response
       const choice = data.choices?.[0];
       if (!choice) {
-        throw new Error("No response choices from Groq API");
+        throw new Error("No response from Groq");
       }
 
       const content = choice.message?.content || "";
+      const usage = data.usage || {};
 
       // Create assistant message with token usage
       const assistantMsg: Message = {
-        id: data.id,
+        id: data.id || `msg_${Date.now()}`,
         role: "assistant",
         content,
         timestamp: Date.now(),
         modelUsed: model,
         responseTime,
-        tokens: data.usage.total_tokens,
+        tokens: usage.total_tokens || 0,
         usage: {
-          promptTokens: data.usage.prompt_tokens,
-          completionTokens: data.usage.completion_tokens,
-          totalTokens: data.usage.total_tokens,
+          promptTokens: usage.prompt_tokens || 0,
+          completionTokens: usage.completion_tokens || 0,
+          totalTokens: usage.total_tokens || 0,
         },
       };
 
@@ -145,17 +95,10 @@ export function useGroqChat(options: UseGroqChatOptions = {}) {
 
   const clearError = () => setError(null);
 
-  const setApiKey = (key: string) => {
-    if (typeof window !== "undefined") {
-      localStorage.setItem("groq_api_key", key);
-    }
-  };
-
   return {
     sendMessage,
     isLoading,
     error,
     clearError,
-    setApiKey,
   };
 }
